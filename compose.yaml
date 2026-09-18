@@ -11,6 +11,7 @@ COPY . .
 EXPOSE 5000
 CMD ["npm", "run", "dev"]
 
+cd backend
 docker build -t ma20240469-backend .
 docker images
 
