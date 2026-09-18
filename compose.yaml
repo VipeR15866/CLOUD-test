@@ -1,3 +1,8 @@
+cd Documents
+mkdir ma20240469-iz
+cd ma20240469-iz
+code . 
+
 FROM node:20-slim
 WORKDIR /app
 COPY package*.json ./
