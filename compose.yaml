@@ -20,7 +20,7 @@ docker ps
 docker logs ma20240469-provera
 curl http://localhost:6001/health
 
-echo "BACKEND-IMAGE" >> ma20240469-backend.txt
+echo "BACKEND IMAGE" >> ma20240469-backend.txt
 docker images ma20240469-backend >> ma20240469-backend.txt
 
 echo "BACKEND CONTAINER" >> ma20240469-backend.txt
@@ -34,45 +34,14 @@ curl http://localhost:6001/health >> ma20240469-backend.txt
 
 Standardni PostgreSQL/NODE.JS
 
+name: ma20240469-app
+
 services:
-  backend:
-    build: ./backend
-    container_name: ma20240469-back
-    ports:
-      - "7000:5000"
-    volumes:
-      - /app/node_modules
-      - ./backend:/app
-    environment:
-      - DB_HOST=ma20240469-db
-    depends_on:
-      database:
-        condition: service_healthy
-    networks:
-      - ma20240469-network
-
-  frontend:
-    build: ./frontend
-    container_name: ma20240469-front
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./env/frontend.env
-    volumes:
-      - /app/node_modules
-      - ./frontend:/app
-    depends_on:
-      - backend
-    networks:
-      - ma20240469-network
-
   database:
     image: postgres:16-alpine
     container_name: ma20240469-db
-    environment:
-      POSTGRES_USER: student
-      POSTGRES_PASSWORD: studentpassword
-      POSTGRES_DB: reservations
+    env_file:
+      - env/backend.env
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -84,12 +53,46 @@ services:
     networks:
       - ma20240469-network
 
-volumes:
-  postgres-data:
+  backend:
+    image: ma20240469-backend
+    container_name: ma20240469-back
+    env_file:
+      - env/backend.env
+    ports:
+      - "5000:5000"
+    volumes:
+      - /app/node_modules
+      - ./backend:/app
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - ma20240469-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ma20240469-front
+    env_file:
+      - env/frontend.env
+    ports:
+      - "7000:3000"
+    volumes:
+      - /app/node_modules
+      - ./frontend:/app
+    depends_on:
+      - backend
+    networks:
+      - ma20240469-network
 
 networks:
   ma20240469-network:
     name: ma20240469-network
+
+volumes:
+  postgres-data:
+    name: postgres-data
 
 docker compose up -d
 
@@ -114,17 +117,17 @@ MySQL 8.0 & Python setup/PYTHON
 FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 COPY . .
 EXPOSE 5000
 CMD ["python", "app.py"]
 
-docker build -t ma20240469-backend .
-docker images
+sudo docker build -t ma20240469-backend .
+sudo docker images
 
-docker run -d -p 4001:5000 --name ma20240469-test ma20240469-backend
-docker ps
-docker logs ma20240469-test
+sudo docker run -d -p 4001:5000 --name ma20240469-test ma20240469-backend
+sudo docker ps
+sudo docker logs ma20240469-test
 curl http://localhost:4001/health
 
 echo "BACKEND IMAGE" >> ma20240469-backend.txt
@@ -140,14 +143,33 @@ echo "BACKEND HEALTH" >> ma20240469-backend.txt
 curl http://localhost:4001/health >> ma20240469-backend.txt
 
 
+name: ma20240469-app
+
 services:
+  database:
+    image: mysql:8.0
+    container_name: ma20240469-db
+    env_file:
+      - env/backend.env
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/my.cnf:/etc/mysql/conf.d/my-custom.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "student", "--password=student"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+    networks:
+      - ma20240469-network
+
   backend:
-    build: ./backend
+    image: ma20240469-backend
     container_name: ma20240469-back
+    env_file:
+      - env/backend.env
     ports:
       - "5000:5000"
-    env_file:
-      - ./env/backend.env
     volumes:
       - /app/__pycache__
       - ./backend:/app
@@ -158,12 +180,14 @@ services:
       - ma20240469-network
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: ma20240469-front
+    env_file:
+      - env/frontend.env
     ports:
       - "7000:3000"
-    env_file:
-      - ./env/frontend.env
     volumes:
       - /app/node_modules
       - ./frontend:/app
@@ -172,32 +196,13 @@ services:
     networks:
       - ma20240469-network
 
-  database:
-    image: mysql:8.0
-    container_name: ma20240469-db
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: reservations
-      MYSQL_USER: student
-      MYSQL_PASSWORD: studentpassword
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./db/my.cnf:/etc/mysql/conf.d/my.custom.cnf:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "student", "-pstudentpassword"]
-      interval: 10s
-      timeout: 10s
-      retries: 6
-    networks:
-      - ma20240469-network
-
-volumes:
-  mysql-data:
-
 networks:
   ma20240469-network:
     name: ma20240469-network
+
+volumes:
+  mysql-data:
+    name: mysql-data
 
 docker compose up -d
 
@@ -205,7 +210,7 @@ echo "IMAGES" >> ma20240469.txt
 docker images >> ma20240469.txt
 
 echo "CONTAINERS" >> ma20240469.txt
-docker ps -a >> ma20240469.txt
+docker ps >> ma20240469.txt
 
 echo "VOLUMES" >> ma20240469.txt
 docker volume ls >> ma20240469.txt
@@ -215,52 +220,49 @@ docker network ls >> ma20240469.txt
 
 echo "COMPOSE" >> ma20240469.txt
 docker compose ps >> ma20240469.txt
-
 -----------------------------------------------------------------------------
 
-
-
-name: ma20240469-jui
+name: ma20240469-jul
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: backend-image-z2
     container_name: ma20240469-server
+    env_file:
+      - env/backend.env
     ports:
-      - "5000:5000"
+      - "7000:5000"
     volumes:
       - /app/node_modules
       - ./backend:/app
-    env_file:
-      - ./env/backend.env
+    networks:
+      - ma20240469-mreza
     depends_on:
       database:
         condition: service_healthy
-    networks:
-      - ma20240469-mreza
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: ma20240469-app
+    env_file:
+      - env/frontend.env
     ports:
-      - "7000:7000"
+      - "3000:3000"  # Mapira lokalni port 3000 na port kontejnera
     volumes:
       - /app/node_modules
       - ./frontend:/app
-    env_file:
-      - ./env/frontend.env
-    depends_on:
-      - backend
     networks:
       - ma20240469-mreza
+    depends_on:
+      - backend
 
   database:
     image: postgres:16-alpine
     container_name: ma20240469-baza
+    env_file:
+      - env/database.env
     volumes:
       - ma20240469-postgres-data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -272,13 +274,9 @@ services:
     networks:
       - ma20240469-mreza
 
-networks:
-  ma20240469-mreza:
-    name: ma20240469-mreza
-    driver: bridge
-
 volumes:
   ma20240469-postgres-data:
 
-volumes:
-  mysql-data:
+networks:
+  ma20240469-mreza:
+    driver: bridge
